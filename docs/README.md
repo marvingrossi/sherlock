@@ -95,6 +95,65 @@ options:
   --ignore-exclusions   Ignore upstream exclusions (may return more false positives)
 ```
 
+## Adding a new site
+
+Sites are data-driven: adding one only requires a single entry in
+[`sherlock_project/resources/data.json`](../sherlock_project/resources/data.json), keyed by the
+site's display name and kept in alphabetical order. No code changes are needed.
+
+Every entry requires four fields:
+
+| Field | Meaning |
+| - | - |
+| `url` | Public profile URL. The `{}` placeholder is replaced with the username being searched. |
+| `urlMain` | Site homepage, shown in results. |
+| `errorType` | How Sherlock decides that a username is *not* claimed (see below). |
+| `username_claimed` | A real, stable account on the site, used by the validation suite. |
+
+### Picking an `errorType`
+
+Probe the live site with `curl` for both a known-existing username and a random non-existent one,
+then compare the responses:
+
+| `errorType` | Use when | Extra field |
+| - | - | - |
+| `status_code` | The existing profile returns 2xx and the missing one returns a non-2xx (e.g. 404). Cheapest option (uses `HEAD`), prefer it when reliable. | `errorCode` (optional) |
+| `message` | Both return 200, but the missing profile's body contains a distinctive error string. | `errorMsg` (string or list of strings) |
+| `response_url` | A missing profile redirects while an existing profile returns 2xx. | `errorUrl` |
+
+Commonly used optional fields:
+
+- `urlProbe` — alternate URL to request, typically a JSON API endpoint, while `url` stays the human-facing profile page.
+- `regexCheck` — regex describing the characters the site allows in a username, so impossible usernames are skipped.
+- `request_method` / `request_payload` / `headers` — for sites needing `POST` or special headers.
+- `isNSFW` / `tags` — mark adult (`isNSFW: true`, `tags: "adult"`) or gaming sites.
+
+```json
+  "Example": {
+    "errorType": "status_code",
+    "regexCheck": "^[A-Za-z0-9_]{3,20}$",
+    "url": "https://example.com/user/{}",
+    "urlMain": "https://example.com/",
+    "username_claimed": "blue"
+  },
+```
+
+### Validating the entry
+
+```bash
+# Schema conformance
+poetry run pytest tests/test_manifest.py::test_validate_manifest_against_local_schema
+
+# Live check of just your site: username_claimed must be detected as CLAIMED (false negative
+# check) and random usernames must come back AVAILABLE (false positive check)
+poetry run pytest -q -rA -m validate_targets -n 1 --chunked-sites "Example"
+```
+
+Iterate on `url`, `errorType`, `errorMsg`/`errorUrl` and `regexCheck` until both pass. If a site
+cannot be detected reliably — it always returns 200 with no distinguishing content, or requires
+authentication — it is not a good candidate; see [removed-sites.md](removed-sites.md) for sites
+that were dropped for this reason.
+
 ## Credits
 
 Thank you to everyone who has contributed to Sherlock! ❤️
