@@ -119,7 +119,7 @@ then compare the responses:
 | - | - | - |
 | `status_code` | The existing profile returns 2xx and the missing one returns a non-2xx (e.g. 404). Cheapest option (uses `HEAD`), prefer it when reliable. | `errorCode` (optional) |
 | `message` | Both return 200, but the missing profile's body contains a distinctive error string. | `errorMsg` (string or list of strings) |
-| `response_url` | Existence is signalled by a redirect. | `errorUrl` |
+| `response_url` | A missing profile redirects while an existing profile returns 2xx. | `errorUrl` |
 
 Commonly used optional fields:
 
